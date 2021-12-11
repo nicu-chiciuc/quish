@@ -1,27 +1,103 @@
-import { createServer, Server, RequestListener } from "http";
-import {} from "dependent-ts";
+import { get, listen, myRoute, post, router } from "./server";
+import { router as tRouter } from "@trpc/server";
+import axios from "axios";
+import * as z from "zod";
+import { object, string, number } from "zod";
 
-const test = "hello";
-console.log({ test });
+import * as http from "http";
+import { RequestOptions } from "http";
 
-const listener: RequestListener = (req, res) => {
-  res.writeHead(200, { "Content-Type": "text/plain" });
-  res.write("Hello World!");
-  res.end();
-};
+let trpcRouter = tRouter();
 
-function listen(...args: Parameters<Server["listen"]>) {
-  const server = createServer(listener);
+trpcRouter = trpcRouter.query("createUser", {
+  // validate input with Zod
+  input: z.object({ name: z.string().min(5) }),
+  async resolve(req) {
+    req.input;
+    // use your ORM of choice
+    return {};
+  },
+});
 
-  server.on("close", function () {
-    console.log(" Stopping ...");
+export type trpcType = typeof trpcRouter;
+
+// How to use middleware?
+// How to combine routes
+
+try {
+  router().get("/:userId", (req) => {
+    req.params.userId;
+    console.log(req);
   });
-
-  process.on("SIGINT", function () {
-    server.close();
-  });
-
-  return server.listen(...args);
+} catch (e) {
+  console.error(e);
 }
 
-const stuff = listen(8001);
+const userRoute = myRoute(
+  "/users",
+  [],
+  [
+    post(
+      "/:what",
+      object({
+        name: string(),
+      }),
+      (data) => {
+        //
+      }
+    ),
+  ]
+);
+
+const someStuff = myRoute(
+  "/api",
+  [],
+  [
+    post(
+      "/main/:userId",
+      object({
+        name: number(),
+      }),
+      (req) => {
+        req.userId;
+      }
+    ),
+
+    post(
+      "/:somethingElse",
+      object({
+        data: object({ name: string() }),
+      }),
+      () => {
+        //
+      }
+    ),
+    userRoute,
+  ]
+);
+
+console.log(someStuff);
+
+const port = 8394;
+
+const stuff = listen(someStuff, port);
+
+// Send the request
+axios({
+  method: "GET",
+  baseURL: `http://localhost:${port}`,
+  url: `/api/main/123`,
+  data: {
+    hello: "there",
+  },
+})
+  .then((data) => {
+    console.log(data);
+  })
+  .catch((error) => {
+    console.log(error);
+  });
+
+//
+
+export type Router = typeof stuff;

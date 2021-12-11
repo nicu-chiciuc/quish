@@ -3,21 +3,31 @@
   "version": "0.0.1",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "ts-mocha 'test/**/*.ts'",
     "dev": "ts-node src/index.ts"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "devDependencies": {
+    "@types/chai": "^4.3.0",
+    "@types/expect": "^24.3.0",
+    "@types/mocha": "^9.0.0",
     "@types/node": "^16.11.11",
+    "chai": "^4.3.4",
     "eslint": "^8.3.0",
     "prettier": "^2.5.0",
+    "ts-mocha": "^8.0.0",
     "ts-node": "^10.4.0",
     "typescript": "^4.5.2"
   },
   "dependencies": {
-    "dependent-ts": "0.0.4"
+    "@trpc/client": "^9.16.0",
+    "@trpc/server": "^9.16.0",
+    "axios": "^0.24.0",
+    "dependent-ts": "0.0.4",
+    "path-to-regexp": "^6.2.0",
+    "zod": "^3.11.6"
   },
   "repository": {
     "type": "git",
