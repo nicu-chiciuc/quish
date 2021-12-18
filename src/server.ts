@@ -1,7 +1,7 @@
 import { createServer, Server, RequestListener } from "http";
-import { unreachable } from "dependent-ts";
+import { unreachable, split } from "dependent-ts";
 import { Key, pathToRegexp } from "path-to-regexp";
-import z, { object, SomeZodObject, string, ZodObject } from "zod";
+import z, { object, SafeParseReturnType, SomeZodObject, string, ZodObject } from "zod";
 
 // Source of inspiration
 // https://davidtimms.github.io/programming-languages/typescript/2020/11/20/exploring-template-literal-types-in-typescript-4.1.html
@@ -71,7 +71,7 @@ function decode_param(val?: string) {
 
 function matchRouter(
   url: string,
-  router: Router | SimpleRoute,
+  router: SplitRoute | SimpleRoute,
   upperParams: Record<string, string>
 ): { params: Record<string, string>; endpoint: SimpleRoute } | null {
   const keys: Key[] = [];
@@ -127,7 +127,7 @@ function matchRouter(
 }
 
 const listener =
-  <Route extends Router>(router: Route): RequestListener =>
+  <Route extends SplitRoute>(router: Route): RequestListener =>
   async (req, res) => {
     const buffers = [];
 
@@ -155,9 +155,20 @@ const listener =
       return;
     }
 
-    const data = matchedEndpoint.endpoint.callback({
-      params: matchedEndpoint.params,
-      body: obj,
+    const { endpoint, params } = matchedEndpoint;
+
+    const zodResult = endpoint.validate.safeParse(obj);
+
+    if (!zodResult.success) {
+      res.writeHead(400);
+      res.write("Incorrect request body");
+      res.end();
+      return;
+    }
+
+    const data = endpoint.callback({
+      params,
+      body: zodResult.data,
     });
 
     const sendObj = JSON.stringify(data.body);
@@ -204,11 +215,11 @@ const tes2: Test_PathProp = {
   method: "POST",
 };
 
-type Router<
+type SplitRoute<
   Path extends string = string,
-  M extends (SimpleRoute<any, any, any> | Router<any, any>)[] = (
+  M extends (SimpleRoute<any, any, any> | SplitRoute<any, any>)[] = (
     | SimpleRoute<any, any, any>
-    | Router<any, any>
+    | SplitRoute<any, any>
   )[]
 > = {
   type: "ROUTE";
@@ -216,19 +227,19 @@ type Router<
   endpoints: M;
 };
 
-export function myRoute<
+export function route<
   Path extends string,
-  M extends (SimpleRoute<any, any, any> | Router<any, any>)[]
->(path: Path, middleware: {}[], boys: M): Router<Path, M> {
+  Route extends (SimpleRoute<any, any, any> | SplitRoute<any, any>)[]
+>(path: Path, ...endpoints: Route): SplitRoute<Path, Route> {
   return {
     type: "ROUTE",
     path,
-    endpoints: boys,
+    endpoints,
   };
 }
 
 export function listen<
-  Route extends Router<any, any>,
+  Route extends SplitRoute<any, any>,
   Keys extends string,
   Some extends {
     [P in Keys]: (args: unknown) => unknown;
@@ -256,27 +267,33 @@ type SimpleRoute<
   type: "ENDPOINT";
   path: Path;
   method: Method;
-  validate: (body: unknown) => Validate;
+  validate: z.ZodType<Validate>;
   callback: (req: { body: unknown; params: PathArgs<Path> & Record<string, string> }) => {
     body: unknown;
   };
 };
 
-export function post<T extends string, ValidateInput extends SomeZodObject>(
-  path: T,
+/**
+ * This type is already defined and can be imported from 'zod/lib/cjs/types/base'.
+ * Unfortunately that causes problems when the types are exported for consumption by the mobile app.
+ * Thus, the following definition is a copy of the one in zod/base.ts
+ */
+export type ZodRawShape = {
+  [k: string]: z.ZodTypeAny;
+};
+
+export function post<Path extends string, ValidateInput extends SomeZodObject>(
+  path: Path,
   validate: ValidateInput,
-  run: (req: { body: unknown; params: PathArgs<T> & Record<string, string> }) => {
+  run: (req: { body: z.infer<ValidateInput>; params: PathArgs<Path> & Record<string, string> }) => {
     body: unknown;
   }
-): SimpleRoute<T, z.infer<typeof validate>, "POST"> {
+): SimpleRoute<Path, z.infer<typeof validate>, "POST"> {
   return {
     type: "ENDPOINT",
     path,
     method: "POST",
-    validate: (data: unknown) => {
-      const test = validate.parse(data);
-      return test;
-    },
+    validate,
     callback: run,
   };
 }
@@ -285,21 +302,18 @@ const obj = object({
   hello: string(),
 });
 
-export function get<T extends string, ValidateInput extends SomeZodObject>(
-  path: T,
+export function get<Path extends string, ValidateInput extends SomeZodObject>(
+  path: Path,
   validate: ValidateInput,
-  run: (req: { body: unknown; params: PathArgs<T> & Record<string, string> }) => {
+  run: (req: { body: unknown; params: PathArgs<Path> & Record<string, string> }) => {
     body: unknown;
   }
-): SimpleRoute<T, z.infer<typeof validate>, "GET"> {
+): SimpleRoute<Path, z.infer<typeof validate>, "GET"> {
   return {
     type: "ENDPOINT",
     path,
     method: "GET",
-    validate: (data: unknown) => {
-      const test = validate.parse(data);
-      return test;
-    },
+    validate,
     callback: run,
   };
 }

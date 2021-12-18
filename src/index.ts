@@ -1,4 +1,4 @@
-import { get, listen, myRoute, post, router } from "./server";
+import { get, listen, route, post, router } from "./server";
 import { router as tRouter } from "@trpc/server";
 import axios from "axios";
 import * as z from "zod";
@@ -33,7 +33,7 @@ try {
   console.error(e);
 }
 
-const userRoute = myRoute(
+const userRoute = route(
   "/users",
   [],
   [
@@ -49,7 +49,7 @@ const userRoute = myRoute(
   ]
 );
 
-const someStuff = myRoute(
+const someStuff = route(
   "/api",
   [],
   [
