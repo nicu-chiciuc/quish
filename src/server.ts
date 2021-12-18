@@ -1,6 +1,6 @@
 import { createServer, Server, RequestListener } from "http";
-import {} from "dependent-ts";
-import { pathToRegexp } from "path-to-regexp";
+import { unreachable } from "dependent-ts";
+import { Key, pathToRegexp } from "path-to-regexp";
 import z, { object, SomeZodObject, string, ZodObject } from "zod";
 
 // Source of inspiration
@@ -74,6 +74,47 @@ function getRouterPaths<
   return paths;
 }
 
+function matchRouter(url: string, router: Router): SimpleRoute | null {
+  const keys: Key[] = [];
+  const rex = pathToRegexp(router.path, keys, {
+    sensitive: false,
+    strict: false,
+    // This is the most important, since we don't want to match the end, just the beginning
+    end: false,
+  });
+
+  const matches = rex.exec(url);
+
+  if (!matches) return null;
+
+  const firstMatch = matches[0];
+
+  if (typeof firstMatch !== "string") {
+    console.error("First match doesn't exist");
+    return null;
+  }
+
+  const nextPath = matches.input.substring(firstMatch.length);
+
+  for (const endpoint of router.endpoints) {
+    switch (endpoint.type) {
+      case "ROUTE":
+        return matchRouter(nextPath, endpoint);
+
+      case "ENDPOINT":
+        return endpoint;
+
+      default: {
+        unreachable(endpoint);
+      }
+    }
+  }
+
+  return null;
+
+  // Split the url and pass it next
+}
+
 // function findFunction<Route extends Router>() {
 //     if
 //
@@ -95,24 +136,12 @@ const listener =
     // Find the correct router based on the url
     req.url;
 
-    const data = (() => {
-      for (const endpoint of router.endpoints) {
-        const rex = pathToRegexp(endpoint.path);
+    const routeCallback = matchRouter(req.url ?? "", router);
 
-        const test = rex.exec(req.url ?? "");
-
-        if (test) {
-          if (endpoint.type === "ENDPOINT") {
-            const response = endpoint.callback(obj);
-            return response;
-          } else {
-            throw new Error("ROUTER not implemented yet");
-          }
-        }
-      }
-
-      throw new Error("Not implemented");
-    })();
+    if (!routeCallback) {
+      const message = "Didn't find route";
+      throw new Error(message);
+    }
 
     if (false) {
       // Get all routes
@@ -131,6 +160,8 @@ const listener =
 
       console.log(paths);
     }
+
+    const data = routeCallback.callback(obj);
 
     const sendObj = JSON.stringify(data.body);
 
@@ -205,13 +236,7 @@ export function listen<
   Some extends {
     [P in Keys]: (args: unknown) => unknown;
   }
->(
-  opts: Route,
-  ...args: Parameters<Server["listen"]>
-): {
-  method: "ALL";
-  input: PathArgs<any>;
-} {
+>(opts: Route, ...args: Parameters<Server["listen"]>) {
   console.log("here");
   const server = createServer(listener(opts));
 
@@ -223,11 +248,14 @@ export function listen<
     server.close();
   });
 
-  // @ts-ignore
   return server.listen(...args);
 }
 
-type SimpleRoute<Path extends string, Validate, Method extends "POST" | "GET"> = {
+type SimpleRoute<
+  Path extends string = string,
+  Validate = unknown,
+  Method extends "POST" | "GET" = "POST" | "GET"
+> = {
   type: "ENDPOINT";
   path: Path;
   method: Method;
