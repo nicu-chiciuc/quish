@@ -74,7 +74,7 @@ function getRouterPaths<
   return paths;
 }
 
-function matchRouter(url: string, router: Router): SimpleRoute | null {
+function matchRouter(url: string, router: Router | SimpleRoute): SimpleRoute | null {
   const keys: Key[] = [];
   const rex = pathToRegexp(router.path, keys, {
     sensitive: false,
@@ -94,31 +94,17 @@ function matchRouter(url: string, router: Router): SimpleRoute | null {
     return null;
   }
 
+  if (router.type === "ENDPOINT") return router;
+
   const nextPath = matches.input.substring(firstMatch.length);
 
   for (const endpoint of router.endpoints) {
-    switch (endpoint.type) {
-      case "ROUTE":
-        return matchRouter(nextPath, endpoint);
-
-      case "ENDPOINT":
-        return endpoint;
-
-      default: {
-        unreachable(endpoint);
-      }
-    }
+    const found = matchRouter(nextPath, endpoint);
+    if (found) return found;
   }
 
   return null;
-
-  // Split the url and pass it next
 }
-
-// function findFunction<Route extends Router>() {
-//     if
-//
-// }
 
 const listener =
   <Route extends Router>(router: Route): RequestListener =>
@@ -139,8 +125,14 @@ const listener =
     const routeCallback = matchRouter(req.url ?? "", router);
 
     if (!routeCallback) {
-      const message = "Didn't find route";
-      throw new Error(message);
+      res.writeHead(404, { "Content-Type": "application/json" });
+      res.write(
+        JSON.stringify({
+          error: "Route not found",
+        })
+      );
+      res.end();
+      return;
     }
 
     if (false) {

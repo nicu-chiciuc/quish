@@ -121,4 +121,38 @@ describe("Routes", () => {
 
     server.close();
   });
+
+  it("Should not match incorrect routes", async () => {
+    const router = myRoute(
+      "/api",
+      [],
+      [
+        post("/something", object({}), (data) => {
+          return {
+            body: {},
+          };
+        }),
+      ]
+    );
+
+    const port = 8394;
+
+    const server = listen(router, port);
+
+    const response = await axios({
+      method: "POST",
+      baseURL: `http://localhost:${port}`,
+      url: "/api/otherThing",
+      data: {},
+      // Don't throw if response is 404
+      validateStatus: null,
+    });
+
+    expect(response.status).to.be.equal(404);
+    expect(response.data).to.deep.equal({
+      error: "Route not found",
+    });
+
+    server.close();
+  });
 });
