@@ -71,7 +71,8 @@ function decode_param(val?: string) {
 
 function matchRouter(
   url: string,
-  router: Router | SimpleRoute
+  router: Router | SimpleRoute,
+  upperParams: Record<string, string>
 ): { params: Record<string, string>; endpoint: SimpleRoute } | null {
   const keys: Key[] = [];
   const rex = pathToRegexp(router.path, keys, {
@@ -93,7 +94,7 @@ function matchRouter(
   }
 
   // Get all the keys
-  const params: Record<string, string> = {};
+  const params = { ...upperParams };
   {
     for (let i = 1; i < matches.length; i++) {
       const key = keys[i - 1];
@@ -108,12 +109,17 @@ function matchRouter(
     }
   }
 
-  if (router.type === "ENDPOINT") return { params, endpoint: router };
+  if (router.type === "ENDPOINT") {
+    return {
+      params,
+      endpoint: router,
+    };
+  }
 
   const nextPath = matches.input.substring(firstMatch.length);
 
   for (const endpoint of router.endpoints) {
-    const found = matchRouter(nextPath, endpoint);
+    const found = matchRouter(nextPath, endpoint, params);
     if (found) return found;
   }
 
@@ -136,7 +142,7 @@ const listener =
     // Find the correct router based on the url
     req.url;
 
-    const matchedEndpoint = matchRouter(req.url ?? "", router);
+    const matchedEndpoint = matchRouter(req.url ?? "", router, {});
 
     if (!matchedEndpoint) {
       res.writeHead(404, { "Content-Type": "application/json" });
@@ -251,7 +257,7 @@ type SimpleRoute<
   path: Path;
   method: Method;
   validate: (body: unknown) => Validate;
-  callback: (req: { body: unknown; params: PathArgs<Path> }) => {
+  callback: (req: { body: unknown; params: PathArgs<Path> & Record<string, string> }) => {
     body: unknown;
   };
 };
@@ -259,7 +265,7 @@ type SimpleRoute<
 export function post<T extends string, ValidateInput extends SomeZodObject>(
   path: T,
   validate: ValidateInput,
-  run: (req: { body: unknown; params: PathArgs<T> }) => {
+  run: (req: { body: unknown; params: PathArgs<T> & Record<string, string> }) => {
     body: unknown;
   }
 ): SimpleRoute<T, z.infer<typeof validate>, "POST"> {
@@ -282,7 +288,7 @@ const obj = object({
 export function get<T extends string, ValidateInput extends SomeZodObject>(
   path: T,
   validate: ValidateInput,
-  run: (req: { body: unknown; params: PathArgs<T> }) => {
+  run: (req: { body: unknown; params: PathArgs<T> & Record<string, string> }) => {
     body: unknown;
   }
 ): SimpleRoute<T, z.infer<typeof validate>, "GET"> {
