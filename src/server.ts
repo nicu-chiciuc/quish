@@ -43,38 +43,36 @@ type PathArgs<Path extends string> = {
 
 type Test = PathArgs<"/hello/:there/:here">;
 
-function getRouterPaths<
-  Route extends Router<string, (SimpleRoute<any, any, any> | Router<any, any>)[]>
->(
-  router: Route
-): Array<{
-  path: string;
-  callback: (args: PathArgs<any>) => unknown;
-}> {
-  const paths = router.endpoints.flatMap((endpoint) => {
-    if (endpoint.type === "ROUTE") {
-      const innerPaths = getRouterPaths(endpoint);
+/**
+ * Decode param value.
+ * Copied from express
+ *
+ * @param {string} val
+ * @return {string}
+ * @private
+ */
 
-      return innerPaths.map((path) => ({
-        path: `${router.path}${path.path}`,
-        callback: path.callback,
-      }));
+function decode_param(val?: string) {
+  if (typeof val !== "string" || val.length === 0) {
+    return val;
+  }
 
-      //
+  try {
+    return decodeURIComponent(val);
+  } catch (err) {
+    if (err instanceof URIError) {
+      err.message = "Failed to decode param '" + val + "'";
+      // err.status = err.statusCode = 400;
     }
 
-    return [
-      {
-        path: `${router.path}${endpoint.path}`,
-        callback: endpoint.callback,
-      },
-    ];
-  });
-
-  return paths;
+    throw err;
+  }
 }
 
-function matchRouter(url: string, router: Router | SimpleRoute): SimpleRoute | null {
+function matchRouter(
+  url: string,
+  router: Router | SimpleRoute
+): { params: Record<string, string>; endpoint: SimpleRoute } | null {
   const keys: Key[] = [];
   const rex = pathToRegexp(router.path, keys, {
     sensitive: false,
@@ -94,7 +92,23 @@ function matchRouter(url: string, router: Router | SimpleRoute): SimpleRoute | n
     return null;
   }
 
-  if (router.type === "ENDPOINT") return router;
+  // Get all the keys
+  const params: Record<string, string> = {};
+  {
+    for (let i = 1; i < matches.length; i++) {
+      const key = keys[i - 1];
+      if (!key) throw new Error("key is undefined??");
+
+      const prop = key.name;
+
+      const value = decode_param(matches[i]);
+      if (value === undefined) throw new Error("Value is not defined");
+
+      params[prop] = value;
+    }
+  }
+
+  if (router.type === "ENDPOINT") return { params, endpoint: router };
 
   const nextPath = matches.input.substring(firstMatch.length);
 
@@ -122,9 +136,9 @@ const listener =
     // Find the correct router based on the url
     req.url;
 
-    const routeCallback = matchRouter(req.url ?? "", router);
+    const matchedEndpoint = matchRouter(req.url ?? "", router);
 
-    if (!routeCallback) {
+    if (!matchedEndpoint) {
       res.writeHead(404, { "Content-Type": "application/json" });
       res.write(
         JSON.stringify({
@@ -135,25 +149,10 @@ const listener =
       return;
     }
 
-    if (false) {
-      // Get all routes
-      const paths = getRouterPaths(router);
-
-      for (const path of paths) {
-        const curRegex = pathToRegexp(path.path);
-
-        const test = curRegex.exec(req.url ?? "");
-
-        if (test) {
-          path.callback(obj);
-          // Call that specific endpoint
-        }
-      }
-
-      console.log(paths);
-    }
-
-    const data = routeCallback.callback(obj);
+    const data = matchedEndpoint.endpoint.callback({
+      params: matchedEndpoint.params,
+      body: obj,
+    });
 
     const sendObj = JSON.stringify(data.body);
 
@@ -252,7 +251,7 @@ type SimpleRoute<
   path: Path;
   method: Method;
   validate: (body: unknown) => Validate;
-  callback: (req: PathArgs<Path>) => {
+  callback: (req: { body: unknown; params: PathArgs<Path> }) => {
     body: unknown;
   };
 };
@@ -260,7 +259,7 @@ type SimpleRoute<
 export function post<T extends string, ValidateInput extends SomeZodObject>(
   path: T,
   validate: ValidateInput,
-  run: (req: PathArgs<T>) => {
+  run: (req: { body: unknown; params: PathArgs<T> }) => {
     body: unknown;
   }
 ): SimpleRoute<T, z.infer<typeof validate>, "POST"> {
@@ -283,7 +282,7 @@ const obj = object({
 export function get<T extends string, ValidateInput extends SomeZodObject>(
   path: T,
   validate: ValidateInput,
-  run: (req: PathArgs<T>) => {
+  run: (req: { body: unknown; params: PathArgs<T> }) => {
     body: unknown;
   }
 ): SimpleRoute<T, z.infer<typeof validate>, "GET"> {

@@ -155,4 +155,40 @@ describe("Routes", () => {
 
     server.close();
   });
+
+  it("Should support dynamic routes", async () => {
+    const router = myRoute(
+      "/api",
+      [],
+      [
+        post("/zone/:zoneId", object({}), ({ params, body }) => {
+          return {
+            body: {
+              yourZone: params.zoneId,
+            },
+          };
+        }),
+      ]
+    );
+
+    const port = 8394;
+
+    const server = listen(router, port);
+
+    const response = await axios({
+      method: "POST",
+      baseURL: `http://localhost:${port}`,
+      url: "/api/zone/1234",
+      data: {},
+      // Don't throw if response is 404
+      validateStatus: null,
+    });
+
+    expect(response.status).to.be.equal(200);
+    expect(response.data).to.deep.equal({
+      yourZone: "1234",
+    });
+
+    server.close();
+  });
 });
