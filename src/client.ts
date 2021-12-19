@@ -1,8 +1,26 @@
 import type { trpcType } from "./index";
 import { createTRPCClient } from "@trpc/client";
+import { SplitRoute } from "./server";
+import axios from "axios";
 
-const client = createTRPCClient<trpcType>({
-  url: "http://localhost:8000/trpc",
-});
+export function createQuishClient<Route extends SplitRoute>({ baseURL }: { baseURL: string }) {
+  return {
+    async post(
+      path: string,
+      body: unknown
+    ): Promise<{
+      body: unknown;
+    }> {
+      const response = await axios({
+        method: "POST",
+        baseURL,
+        url: path,
+        data: body,
+      });
 
-client.query("createUser", { name: "hello" });
+      return {
+        body: response.data,
+      };
+    },
+  };
+}

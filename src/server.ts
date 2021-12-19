@@ -215,16 +215,16 @@ const tes2: Test_PathProp = {
   method: "POST",
 };
 
-type SplitRoute<
+export type SplitRoute<
   Path extends string = string,
-  M extends (SimpleRoute<any, any, any> | SplitRoute<any, any>)[] = (
+  Endpoints extends (SimpleRoute<any, any, any> | SplitRoute<any, any>)[] = (
     | SimpleRoute<any, any, any>
     | SplitRoute<any, any>
   )[]
 > = {
   type: "ROUTE";
   path: Path;
-  endpoints: M;
+  endpoints: Endpoints;
 };
 
 export function route<
@@ -259,10 +259,10 @@ export function listen<
   return server.listen(...args);
 }
 
-type SimpleRoute<
+export type SimpleRoute<
   Path extends string = string,
   Validate = unknown,
-  Method extends "POST" | "GET" = "POST" | "GET"
+  Method extends "POST" | "GET" | "PUT" = "POST" | "GET" | "PUT"
 > = {
   type: "ENDPOINT";
   path: Path;
@@ -293,6 +293,22 @@ export function post<Path extends string, ValidateInput extends SomeZodObject>(
     type: "ENDPOINT",
     path,
     method: "POST",
+    validate,
+    callback: run,
+  };
+}
+
+export function put<Path extends string, ValidateInput extends SomeZodObject>(
+  path: Path,
+  validate: ValidateInput,
+  run: (req: { body: z.infer<ValidateInput>; params: PathArgs<Path> & Record<string, string> }) => {
+    body: unknown;
+  }
+): SimpleRoute<Path, z.infer<typeof validate>, "PUT"> {
+  return {
+    type: "ENDPOINT",
+    path,
+    method: "PUT",
     validate,
     callback: run,
   };
