@@ -21,10 +21,6 @@ export type PathClient<Path extends string> =
   Path extends `${infer Prefix}:${string}` ? `${Prefix}${string}` :
   Path;
 
-type Test9 = "/api/:userId/data/:zoneId";
-type _Test9 = PathClient<Test9>;
-const test9: _Test9 = "";
-
 // Split a string by
 type Split<
   At extends string,

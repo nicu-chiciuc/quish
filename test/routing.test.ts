@@ -1,4 +1,4 @@
-import { listen, route, post, use } from "../src/server";
+import { listen, route, post } from "../src/server";
 import { object, string } from "zod";
 import axios from "axios";
 import { expect } from "chai";

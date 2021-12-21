@@ -1,6 +1,7 @@
 import axios from "axios";
 import { PathClient, SimpleRoute, SplitRoute } from "./server";
 import { UnionToIntersection } from "dependent-ts";
+import { Router } from "@trpc/server/dist/declarations/src/router";
 
 // prettier-ignore
 export type Prev = [never, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
@@ -52,13 +53,18 @@ type PrependPath<UpperPath extends string, CurrentRoute> = CurrentRoute extends 
   ? SimpleRoute<`${UpperPath}${Path}`, Validate, Method>
   : never;
 
+/**
+ * Transforms a recursive SplitRoute into
+ */
 // prettier-ignore
-export type ExtractRoutes<Route, D extends number = 4> =
+export type ExtractRoutesInternal<Route, D extends number> =
   [D] extends [never] ? never :
     // to stop the execution if it's too long
     // we need to differentiate between an endpoint and a split
     Route extends SplitRoute<infer Path, infer Endpoints>
-      ? PrependPath<Route["path"], ExtractRoutes<Endpoints[number], Prev[D]>>
+      ? PrependPath<Route["path"], ExtractRoutesInternal<Endpoints[number], Prev[D]>>
       : Route extends SimpleRoute
       ? Route
       : never;
+
+export type ExtractRoutes<Route extends SimpleRoute | SplitRoute> = ExtractRoutesInternal<Route, 5>;
