@@ -1,6 +1,13 @@
 import { object } from "zod";
-import { createQuishClient, ExtractRoutes } from "../src/client";
-import { PathClient, post, put, route, SimpleRoute } from "../src/server";
+import { post, put, route, SimpleRoute } from "../src/server";
+import {
+  ExtractRoutes,
+  ParseRoutes,
+  PathArgs,
+  PathClient,
+  PathParams,
+  PrependPath,
+} from "../src/types";
 
 // https://github.com/microsoft/TypeScript/issues/27024#issuecomment-421529650
 export type Equals<X, Y> = (<T>() => T extends X ? 1 : 2) extends <T>() => T extends Y ? 1 : 2
@@ -18,17 +25,78 @@ describe("Types", () => {
       )
     );
 
-    type RouterType = typeof router;
-    type ExtractedRoutes = ExtractRoutes<RouterType>;
-
-    type Test = Equals<
-      ExtractedRoutes,
+    const test: Equals<
+      ExtractRoutes<typeof router>,
       //
       | SimpleRoute<"/api/hello/:userId", {}, "POST">
       | SimpleRoute<"/api/:dataId/test/:testId", {}, "PUT">
-    >;
+    > = true;
+  });
 
-    const test: Test = true;
+  it("PrependPath", () => {
+    type SampleRoute = SimpleRoute<"/any", {}, "PUT">;
+
+    const test: Equals<
+      PrependPath<"/api", SampleRoute>,
+      //
+      SimpleRoute<"/api/any", {}, "PUT">
+    > = true;
+  });
+
+  it("ParseRoutes", () => {
+    type SampleRoute = SimpleRoute<"/any/:userId", {}, "PUT">;
+
+    const test: Equals<
+      ParseRoutes<SampleRoute>,
+      //
+      {
+        [x: `/any/${string}`]: SampleRoute;
+      }
+    > = true;
+  });
+
+  describe("PathParams, PathArgs", () => {
+    it("/api", () => {
+      const test: Equals<
+        PathParams<"/api">,
+        //
+        never
+      > = true;
+
+      const test2: Equals<
+        PathArgs<"/api">,
+        //
+        {}
+      > = true;
+    });
+
+    it("/api/:userId", () => {
+      const test: Equals<
+        PathParams<"/api/:userId">,
+        //
+        "userId"
+      > = true;
+
+      const test2: Equals<
+        PathArgs<"/api/:userId">,
+        //
+        { userId: string }
+      > = true;
+    });
+
+    it("/api/:userId/zone/:zoneId", () => {
+      const test: Equals<
+        PathParams<"/api/:userId/zone/:zoneId">,
+        //
+        "userId" | "zoneId"
+      > = true;
+
+      const test2: Equals<
+        PathArgs<"/api/:userId/zone/:zoneId">,
+        //
+        { userId: string; zoneId: string }
+      > = true;
+    });
   });
 
   describe("PathClient", () => {

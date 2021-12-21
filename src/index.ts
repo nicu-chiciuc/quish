@@ -7,59 +7,29 @@ import { object, string, number } from "zod";
 import * as http from "http";
 import { RequestOptions } from "http";
 
-let trpcRouter = tRouter();
-
-trpcRouter = trpcRouter.query("createUser", {
-  // validate input with Zod
-  input: z.object({ name: z.string().min(5) }),
-  async resolve(req) {
-    req.input;
-    // use your ORM of choice
-    return {};
-  },
-});
-
-export type trpcType = typeof trpcRouter;
-
-// How to use middleware?
-// How to combine routes
-
-try {
-  router().get("/:userId", (req) => {
-    req.params.userId;
-    console.log(req);
-  });
-} catch (e) {
-  console.error(e);
-}
-
-const userRoute = route(
-  "/users",
-  [],
-  [
+function main() {
+  const userRoute = route(
+    "/users",
     post(
       "/:what",
       object({
         name: string(),
       }),
       (data) => {
-        //
+        return { body: [] };
       }
-    ),
-  ]
-);
+    )
+  );
 
-const someStuff = route(
-  "/api",
-  [],
-  [
+  const someStuff = route(
+    "/api",
     post(
       "/main/:userId",
       object({
         name: number(),
       }),
       (req) => {
-        req.userId;
+        return { body: {} };
       }
     ),
 
@@ -69,35 +39,29 @@ const someStuff = route(
         data: object({ name: string() }),
       }),
       () => {
-        //
+        return { body: {} };
       }
     ),
-    userRoute,
-  ]
-);
+    userRoute
+  );
 
-console.log(someStuff);
+  const port = 8394;
 
-const port = 8394;
+  const stuff = listen(someStuff, port);
 
-const stuff = listen(someStuff, port);
-
-// Send the request
-axios({
-  method: "GET",
-  baseURL: `http://localhost:${port}`,
-  url: `/api/main/123`,
-  data: {
-    hello: "there",
-  },
-})
-  .then((data) => {
-    console.log(data);
+  // Send the request
+  axios({
+    method: "GET",
+    baseURL: `http://localhost:${port}`,
+    url: `/api/main/123`,
+    data: {
+      hello: "there",
+    },
   })
-  .catch((error) => {
-    console.log(error);
-  });
-
-//
-
-export type Router = typeof stuff;
+    .then((data) => {
+      console.log(data);
+    })
+    .catch((error) => {
+      console.log(error);
+    });
+}

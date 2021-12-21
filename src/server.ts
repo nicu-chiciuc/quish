@@ -1,53 +1,7 @@
-import { createServer, Server, RequestListener } from "http";
-import { unreachable, split } from "dependent-ts";
+import { createServer, RequestListener, Server } from "http";
 import { Key, pathToRegexp } from "path-to-regexp";
-import z, { object, SafeParseReturnType, SomeZodObject, string, ZodObject } from "zod";
-
-// Source of inspiration
-// https://davidtimms.github.io/programming-languages/typescript/2020/11/20/exploring-template-literal-types-in-typescript-4.1.html
-
-// prettier-ignore
-export type PathParams<Path extends string> =
-    Path extends `:${infer Param}/${infer Rest}`  ? Param | PathParams<Rest> :
-    Path extends `:${infer Param}`                ? Param :
-
-    // This is the base case, here we remove the unnecessary prefix
-    Path extends `${infer _Prefix}:${infer Rest}` ? PathParams<`:${Rest}`> :
-    never;
-
-// prettier-ignore
-export type PathClient<Path extends string> =
-  Path extends `${infer Prefix}:${string}/${infer Rest}` ? `${Prefix}${string}${PathClient<`/${Rest}`>}` :
-  Path extends `${infer Prefix}:${string}` ? `${Prefix}${string}` :
-  Path;
-
-// Split a string by
-type Split<
-  At extends string,
-  Value extends string
-> = Value extends `${infer First}${At}${infer Rest}` ? [First, ...Split<At, Rest>] : [Value];
-
-type SplitSecond<
-  At extends string,
-  Value extends string
-> = Value extends `${infer First}${At}${infer Second}` ? Second : never;
-
-type Second<Arr extends unknown[]> = Arr extends [unknown, infer R, ...unknown[]] ? R : never;
-
-type DefinedOr<
-  MaybeDefined extends string | undefined,
-  Or extends string
-> = MaybeDefined extends string ? Or : MaybeDefined;
-
-type TestSplit = Split<" ", "POST /hello">;
-
-type Test3 = Second<Split<" ", "POST /hello">>;
-
-type PathArgs<Path extends string> = {
-  [K in PathParams<Path>]: string;
-};
-
-type Test = PathArgs<"/hello/:there/:here">;
+import z, { object, SomeZodObject, string } from "zod";
+import { PathArgs } from "./types";
 
 /**
  * Decode param value.
@@ -184,8 +138,6 @@ const listener =
     res.end();
   };
 
-type Test4 = PathArgs<"POST /:userId">;
-
 export function router<Key extends string>() {
   return {
     get: <Path extends string>(
@@ -197,29 +149,8 @@ export function router<Key extends string>() {
   };
 }
 
-/**
- * Add the Prefix to all the types of the `path` property
- */
-export type PathProp<Prefix extends string, T extends { path: string }> = T extends T
-  ? DistributiveOmit<T, "path"> & {
-      path: `${Prefix}${T["path"]}`;
-    }
-  : never;
-
 // https://stackoverflow.com/questions/57103834/typescript-omit-a-property-from-all-interfaces-in-a-union-but-keep-the-union-s
 type DistributiveOmit<T, K extends keyof any> = T extends any ? Omit<T, K> : never;
-
-type Other = Omit<{ path: string; name: number }, "path">;
-
-type Test_PathProp = PathProp<
-  "/hello",
-  { path: "/test"; method: "GET" } | { path: "/:userId"; method: "POST" }
->;
-
-const tes2: Test_PathProp = {
-  path: "/hello/:userId",
-  method: "POST",
-};
 
 export type SplitRoute<
   Path extends string = string,

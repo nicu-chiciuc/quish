@@ -1,8 +1,9 @@
 import { listen, post, put, route, SimpleRoute, SplitRoute } from "../src/server";
 import { number, object, string } from "zod";
 import { expect } from "chai";
-import { createQuishClient, ExtractRoutes, ParseRoutes, Prev } from "../src/client";
+import { createQuishClient } from "../src/client";
 import { UnionToIntersection } from "dependent-ts";
+import { ExtractRoutes, ParseRoutes, Prev } from "../src/types";
 
 const router = route(
   "/api",
