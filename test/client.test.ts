@@ -1,8 +1,8 @@
-import { route, post, listen, put, SplitRoute, SimpleRoute } from "../src/server";
+import { listen, post, put, route, SimpleRoute, SplitRoute } from "../src/server";
 import { number, object, string } from "zod";
-import axios from "axios";
 import { expect } from "chai";
-import { createQuishClient } from "../src/client";
+import { createQuishClient, ExtractRoutes, ParseRoutes, Prev } from "../src/client";
+import { UnionToIntersection } from "dependent-ts";
 
 const router = route(
   "/api",
@@ -25,10 +25,6 @@ const router = route(
     })
   )
 );
-
-// prettier-ignore
-type Prev = [never, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
-    11, 12, 13, 14, 15, 16, 17, 18, 19, 20, ...0[]]
 
 type Join<K, P> = K extends string | number
   ? P extends string | number
@@ -68,39 +64,17 @@ type NestedObjectLeaves = Leaves<NestedObjectType>;
 
 type TestExtract<Route extends SplitRoute> = Route["endpoints"][number];
 
-const test23: TestExtract<typeof router> = 3;
+export type Test = ExtractRoutes<typeof router>;
 
-/**
- * Prepend the path of SimpleRoute
- */
-type PrependPath<UpperPath extends string, CurrentRoute> = CurrentRoute extends SimpleRoute<
-  infer Path,
-  infer Validate,
-  infer Method
->
-  ? SimpleRoute<`${UpperPath}${Path}`, Validate, Method>
-  : never;
-
-// prettier-ignore
-type ExtractRoutes<Route, D extends number = 4> =
-    // to stop the execution if it's too long
-    [D] extends [never] ? never
-    // we need to differentiate between an endpoint and a split
-    : Route extends SplitRoute<any, infer Endpoints>
-    ? (Endpoints[number] extends (infer R)
-                ? PrependPath<Route['path'], ExtractRoutes<R, Prev[D]>>
-                : never)
-    : Route;
-
-type Test = ExtractRoutes<typeof router>;
+type Test2 = UnionToIntersection<ParseRoutes<Test>>;
 
 const test: Test = {
   type: "ENDPOINT",
   path: "/api/hello",
   validate: object({
-    hello: number(),
+    date: string(),
   }),
-  method: "PUT",
+  method: "POST",
   callback: (): any => {},
 };
 
@@ -108,8 +82,7 @@ describe("Client", () => {
   it("Should call a post method", async () => {
     const router = route(
       "/api",
-
-      post("/hello", object({ name: string() }), (data) => {
+      post("/hello/:userId", object({ name: string() }), (data) => {
         return {
           body: {
             hi: data.body.name,
@@ -136,8 +109,7 @@ describe("Client", () => {
       baseURL: `http://localhost:${port}`,
     });
 
-    // @ts-expect-error
-    const response = await client.post("/hello", { name: "nicusor" });
+    const response = await client.post("/api/hello/:userId", { name: "nicusor" });
 
     expect(response.body).to.deep.equal({
       hi: "nicusor",
