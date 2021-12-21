@@ -7,13 +7,23 @@ import z, { object, SafeParseReturnType, SomeZodObject, string, ZodObject } from
 // https://davidtimms.github.io/programming-languages/typescript/2020/11/20/exploring-template-literal-types-in-typescript-4.1.html
 
 // prettier-ignore
-type PathParams<Path extends string> =
+export type PathParams<Path extends string> =
     Path extends `:${infer Param}/${infer Rest}`  ? Param | PathParams<Rest> :
     Path extends `:${infer Param}`                ? Param :
 
     // This is the base case, here we remove the unnecessary prefix
     Path extends `${infer _Prefix}:${infer Rest}` ? PathParams<`:${Rest}`> :
     never;
+
+// prettier-ignore
+export type PathClient<Path extends string> =
+  Path extends `${infer Prefix}:${string}/${infer Rest}` ? `${Prefix}${string}${PathClient<`/${Rest}`>}` :
+  Path extends `${infer Prefix}:${string}` ? `${Prefix}${string}` :
+  Path;
+
+type Test9 = "/api/:userId/data/:zoneId";
+type _Test9 = PathClient<Test9>;
+const test9: _Test9 = "";
 
 // Split a string by
 type Split<

@@ -1,5 +1,5 @@
 import axios from "axios";
-import { SimpleRoute, SplitRoute } from "./server";
+import { PathClient, SimpleRoute, SplitRoute } from "./server";
 import { UnionToIntersection } from "dependent-ts";
 
 // prettier-ignore
@@ -12,7 +12,7 @@ export type ParseRoutes<SRoute extends SimpleRoute> = SRoute extends SimpleRoute
   infer Method
 >
   ? {
-      [k in Path]: SRoute;
+      [k in PathClient<Path>]: SRoute;
     }
   : never;
 
@@ -22,7 +22,7 @@ export function createQuishClient<
 >({ baseURL }: { baseURL: string }) {
   return {
     post: async <Path extends keyof ParsedData, Method extends "POST" | "PUT">(
-      path: Path,
+      path: Path & string,
       body: ParsedData[Path] extends SimpleRoute<any, infer Validation, any> ? Validation : never
     ): Promise<{
       body: unknown;

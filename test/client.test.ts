@@ -66,6 +66,12 @@ type TestExtract<Route extends SplitRoute> = Route["endpoints"][number];
 
 export type Test = ExtractRoutes<typeof router>;
 
+type Sample = {
+  [x: `hello${string}`]: number;
+} & {
+  [x: `${string} bye`]: string;
+};
+
 type Test2 = UnionToIntersection<ParseRoutes<Test>>;
 
 const test: Test = {
@@ -109,7 +115,7 @@ describe("Client", () => {
       baseURL: `http://localhost:${port}`,
     });
 
-    const response = await client.post("/api/hello/:userId", { name: "nicusor" });
+    const response = await client.post("/api/hello/34", { name: "nicusor" });
 
     expect(response.body).to.deep.equal({
       hi: "nicusor",
